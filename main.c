@@ -39,7 +39,7 @@ int min_y = 0;
     
 void turn(bool direction, short angleChange, int speed) { // 0 == LEFT, 1 == RIGHT, angleChange in DEGREES, speed [0 - 100]
     int duty_cycle = (speed * 65535) / 100;
-    int pastHeading = heading;
+    int pastHeading = heading; //Need a function to get initial heading. heading is fake call, something like imu.get_heading()?
     if(direction == 0) {
         int futureHeading = pastHeading - angleChange;
         if (futureHeading < -180) {
