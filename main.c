@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdint.h>
-#include <stdbool.h>
 #define _USE_MATH_DEFINES
 #include <math.h>
 #include "pico/stdlib.h"
@@ -8,38 +7,47 @@
 #include "hardware/gpio.h"
 #include "hardware/pwm.h"
 
-#ifndef GPIO_FUNC_PWM
-#define GPIO_FUNC_PWM 2
-#endif
-
 // ── Pin definitions ───────────────────────────────────────────────────────────
 #define LFWD_PIN     2
 #define LREV_PIN     3
 #define RFWD_PIN     4
 #define RREV_PIN     5
+// Declare encoder pins
+#define LChannelA    6
+#define LChannelB    7
+#define RChannelA    8
+#define RChannelB    9
 #define LSIDE_INT_PIN 15
 #define RSIDE_INT_PIN 14
 
-// ── State machine variables ─────────────────────────────────────────────────
-void init_pins() {
-    gpio_set_function(LREV_PIN, GPIO_FUNC_PWM);
-    gpio_set_function(LFWD_PIN, GPIO_FUNC_PWM);
-    gpio_set_function(RFWD_PIN, GPIO_FUNC_PWM);
-    gpio_set_function(RREV_PIN, GPIO_FUNC_PWM);
-}
-
-
+// Global Encoder and IMU Variables 
 volatile int x_pos = 105; // our starting value is in the middle of the field 
 volatile int y_pos = 0; // our starting value is 0
 int heading = 0;
 int max_x = 205;    //we can move roughly 205cm to the right from 0,0
 int min_x = 10;      
 int max_y = 245;    //we can move roughly 245cm towards the enemy
-int min_y = 0;      
-    
+int min_y = 0;    
+
+// Declare Encoder and IMU Objects
+#include "encoder.h"
+Encoder left_enc;
+Encoder right_enc;
+
+// Helper Functions
+void init_pins() { //Initialize GPIO pins for encoders and motors
+    //Initialize Encoders
+
+    encoder_init(&left_enc, LChannelA, LChannelB);
+    encoder_init(&right_enc, RChannelA, RChannelB);
+    gpio_set_function(LREV_PIN, GPIO_FUNC_PWM);
+    gpio_set_function(LFWD_PIN, GPIO_FUNC_PWM);
+    gpio_set_function(RFWD_PIN, GPIO_FUNC_PWM);
+    gpio_set_function(RREV_PIN, GPIO_FUNC_PWM);
+}
 void turn(bool direction, short angleChange, int speed) { // 0 == LEFT, 1 == RIGHT, angleChange in DEGREES, speed [0 - 100]
     int duty_cycle = (speed * 65535) / 100;
-    int pastHeading = heading; //Need a function to get initial heading. heading is fake call, something like imu.get_heading()?
+    int pastHeading = heading;
     if(direction == 0) {
         int futureHeading = pastHeading - angleChange;
         if (futureHeading < -180) {
@@ -79,7 +87,6 @@ void turn(bool direction, short angleChange, int speed) { // 0 == LEFT, 1 == RIG
         return;
     }
 }
-
 void move(bool DIR, int distance, int speed) { //DIR 1 = FWD, 0 = REV, distance in cm, speed [0 - 100]
     int start_pos_x = x_pos;
     int start_pos_y = y_pos;
@@ -125,14 +132,17 @@ void move(bool DIR, int distance, int speed) { //DIR 1 = FWD, 0 = REV, distance 
     return;
 }
 
+//State Machine Pointer
 typedef void (*StateFunc)(void);
 StateFunc current_state;
 
-void state_initial(void) {
+// States in State Machine
+void state_initial(void) {// Rush towards middle line
     // move(y_dist to middle line ish)
     // transfer to captu
+    current_state = state_capture;
 }
-void state_goalie(void) {
+void state_goalie(void) {// Move back and forth in front of goal
     if (/* trigger */) current_state = state_search;
 }
 void state_capture(void) { // Search and capture
@@ -151,11 +161,18 @@ void state_capture(void) { // Search and capture
     
 }
 void state_deposit(void) { // SCORE
+    // move to shooting position
+    // shoot ball
+}   
+// Main
+int main() {
+    init_pins();
+    while (current_state) {
+        current_state();
+    }  
+}
 
-}
-// In main loop:
-while (current_state) {
-    current_state();
-}
+
+
 
 
